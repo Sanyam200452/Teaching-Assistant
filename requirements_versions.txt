@@ -1,0 +1,21 @@
+# Core
+openai>=1.30.0
+qdrant-client>=1.9.0
+streamlit>=1.35.0
+python-dotenv>=1.0.0
+
+# Chunking — unstructured.io with PDF support
+# "pdf" extra pulls in pdfminer.six and pikepdf for fast strategy
+# For hi_res strategy you'd also need: unstructured[pdf,local-inference]
+unstructured[pdf]>=0.14.0
+
+# Retrieval
+rank-bm25>=0.2.2
+nltk>=3.8
+
+# Reranking (local cross-encoder fallback — no API key needed)
+sentence-transformers>=2.7.0
+torch>=2.0.0
+
+# Optional: Cohere reranker (set COHERE_API_KEY in .env / Streamlit secrets)
+# cohere>=5.5.0
