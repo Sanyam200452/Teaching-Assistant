@@ -50,7 +50,7 @@ class DocumentChunker:
         chunk_size: int = 768,
         chunk_overlap: int = 96,
         combine_under: int = 200,
-        strategy: str = "fast",
+        strategy: str = "hi_res",
     ):
         self.chunk_size   = chunk_size
         self.chunk_overlap = chunk_overlap
@@ -159,7 +159,7 @@ class DocumentChunker:
         chunk_by_title requires unstructured element objects — using
         LangChain's splitter here keeps everything in LangChain's ecosystem.
         """
-        from langchain.text_splitter import RecursiveCharacterTextSplitter
+        from langchain_text_splitters import RecursiveCharacterTextSplitter
 
         splitter = RecursiveCharacterTextSplitter(
             chunk_size=self.chunk_size,
