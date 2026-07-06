@@ -1,0 +1,103 @@
+"""
+run_indexing.py — Index d2l-en.pdf into Qdrant Cloud once.
+
+Usage:
+    pip install -r requirements.txt
+    # fill in .env (copy from .env.example)
+    python run_indexing.py --pdf ./d2l-en.pdf
+
+After running:
+    git add bm25_index.pkl
+    git commit -m "add BM25 index"
+    # then deploy to Streamlit Cloud
+"""
+
+import argparse
+import os
+import sys
+import time
+from pathlib import Path
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# Validate env vars before doing anything
+REQUIRED = ["OPENAI_API_KEY", "QDRANT_URL", "QDRANT_API_KEY", "COHERE_API_KEY"]
+for key in REQUIRED:
+    if not os.environ.get(key):
+        print(f"❌ Missing: {key}  →  add it to your .env file")
+        sys.exit(1)
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--pdf",      default="./d2l-en.pdf")
+    parser.add_argument("--strategy", default="hi_res", choices=["fast", "hi_res"])
+    parser.add_argument("--force",    action="store_true", help="Re-index even if data exists")
+    args = parser.parse_args()
+
+    pdf = Path(args.pdf)
+    if not pdf.exists():
+        print(f"❌ PDF not found: {pdf}")
+        print("   Download: https://d2l.ai/d2l-en.pdf")
+        sys.exit(1)
+
+    from src.ingestion.chunker import DocumentChunker
+    from src.ingestion.embedder import Embedder
+    from src.retrieval.vector_store import VectorStore
+    from src.retrieval.bm25_store import BM25Store
+
+    # ── Check if already indexed ──────────────────────────────────────
+    vs = VectorStore("d2l-book")
+    if vs.collection_exists_and_has_data() and not args.force:
+        print("✅ Already indexed. Use --force to re-index.")
+        sys.exit(0)
+
+    # ── Load + chunk ──────────────────────────────────────────────────
+    print(f"\n📖 Loading and chunking {pdf.name} (strategy={args.strategy})...")
+    chunker = DocumentChunker(
+        chunk_size=768,
+        chunk_overlap=96,
+        strategy=args.strategy,
+    )
+    chunks = chunker.load_and_chunk(pdf)
+    print(f"\n✅ {len(chunks)} chunks created")
+
+    if not chunks:
+        print("❌ No chunks produced. Check the PDF and strategy.")
+        sys.exit(1)
+
+    # ── Embed ─────────────────────────────────────────────────────────
+    embedder = Embedder()
+    print(f"\n🔢 Embedding {len(chunks)} chunks...")
+
+    all_embeddings = []
+    batch = 100
+    for i in range(0, len(chunks), batch):
+        embs = embedder.embed([c.text for c in chunks[i : i + batch]])
+        all_embeddings.extend(embs)
+        pct = min(100, int((i + batch) / len(chunks) * 100))
+        print(f"   {pct}%", end="\r")
+        time.sleep(0.05)
+
+    # ── Upload to Qdrant ──────────────────────────────────────────────
+    print(f"\n📤 Uploading to Qdrant Cloud...")
+    vs.upsert(chunks, all_embeddings)
+
+    # ── Build BM25 index ──────────────────────────────────────────────
+    print("📝 Building BM25 index...")
+    BM25Store().index(chunks)
+
+    # ── Summary ───────────────────────────────────────────────────────
+    has_page = sum(1 for c in chunks if c.metadata.get("page"))
+    has_code = sum(1 for c in chunks if c.metadata.get("has_code"))
+    print(f"\n✅ Done — {len(chunks)} chunks indexed.")
+    print(f"   Page numbers: {has_page}/{len(chunks)} chunks")
+    print(f"   Code chunks:  {has_code}/{len(chunks)} chunks")
+    print("\n   Next steps:")
+    print("   1. git add bm25_index.pkl && git commit -m 'add BM25 index'")
+    print("   2. Deploy to Streamlit Cloud")
+
+
+if __name__ == "__main__":
+    main()
