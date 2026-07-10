@@ -24,7 +24,7 @@ from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct
 
 from src.ingestion.chunker import Chunk
-
+# export OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
 load_dotenv()
 
 
@@ -32,7 +32,7 @@ def _get_secret(key: str) -> str | None:
     """Streamlit secrets first, .env fallback."""
     try:
         if hasattr(st, "secrets"):
-            val = st.secrets.get(key)
+            val = st.secrets.get(key,None)
             if val:
                 return val
     except Exception:
@@ -51,7 +51,7 @@ class VectorStore:
 
         embeddings = OpenAIEmbeddings(
             model=self.MODEL,
-            openai_api_key=os.environ["OPENAI_API_KEY"],
+            
         )
 
         # LangChain wrapper — used for search and as_retriever()
