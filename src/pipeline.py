@@ -1,12 +1,10 @@
 """
-pipeline.py — Teaching assistant pipeline using LangChain LCEL.
+pipeline.py — Teaching assistant pipeline.
 
-Each mode is a LangChain chain built with LCEL (LangChain Expression Language):
-  retriever | prompt | llm | output_parser
-
-Socratic mode uses ConversationBufferWindowMemory for multi-turn state.
-
-pip install langchain langchain-openai
+4 modes (Explain, Quiz, Summarise, Flashcards) are single-turn LCEL chains.
+Socratic mode is a LangGraph state machine (see socratic_graph.py) because
+it needs real branching logic: evaluate understanding, decide whether to
+hint or conclude, enforce a turn limit.
 """
 
 from __future__ import annotations
@@ -27,6 +25,7 @@ from src.ingestion.embedder import Embedder
 from src.retrieval.vector_store import VectorStore
 from src.retrieval.bm25_store import BM25Store
 from src.retrieval.hybrid_retriever import HybridRetriever
+from src.socratic_graph import SocraticSession
 
 load_dotenv()
 
@@ -67,8 +66,12 @@ class TeachingPipeline:
         self.llm = ChatOpenAI(
             model=self.MODEL,
             temperature=0.3,
-            openai_api_key=os.environ["OPENAI_API_KEY"],
+            api_key=lambda: os.environ["OPENAI_API_KEY"],
         )
+
+        # The Socratic graph is built once and reused — it holds no
+        # per-conversation state itself, all state is passed in per call.
+        self._socratic = SocraticSession(self.llm)
 
     # ------------------------------------------------------------------ #
     #  MAIN ENTRY POINT                                                    #
@@ -80,20 +83,39 @@ class TeachingPipeline:
         user_message: str,
         history: list[dict],
         top_k: int = 6,
+        stuck_count: int = 0,   # only used by Socratic mode
     ) -> dict:
         """
         Run one turn. Returns:
-          {"raw": str, "parsed": dict|None, "sources": list[dict]}
+          {
+            "raw": str,
+            "parsed": dict | None,
+            "sources": list[dict],
+            "socratic_meta": dict | None,   # only present for socratic mode
+          }
         """
         mode: Mode = MODES[mode_key]
 
-        # 1. Retrieve
-        chunks = self.retriever.retrieve(user_message, top_k=top_k)
+        # 1. Retrieve — same hybrid + rerank pipeline for every mode
+        chunks  = self.retriever.retrieve(user_message, top_k=top_k)
         context = self._build_context(chunks)
-
-        # 2. Build and invoke the LCEL chain for this mode
+    # 2. Build and invoke the LCEL chain for this mode
+        socratic_meta = None
         if mode_key == "socratic":
-            raw = self._run_socratic(mode, user_message, context, history)
+            result = self._socratic.run(
+                topic=user_message if not history else self._infer_topic(history),
+                context=context,
+                history=history,
+                user_message=user_message,
+                stuck_count=stuck_count,
+            )
+            raw = result["response"]
+            socratic_meta = {
+                "status":       result["status"],
+                "turn_count":   result["turn_count"],
+                "stuck_count":  result["stuck_count"],
+                "is_concluded": result["is_concluded"],
+            }
         else:
             raw = self._run_standard(mode, user_message, context)
 
@@ -112,10 +134,15 @@ class TeachingPipeline:
             for c in chunks
         ]
 
-        return {"raw": raw, "parsed": parsed, "sources": sources}
+        return {
+            "raw": raw,
+            "parsed": parsed,
+            "sources": sources,
+            "socratic_meta": socratic_meta,
+        }
 
     # ------------------------------------------------------------------ #
-    #  LCEL CHAINS                                                         #
+    #  STANDARD (NON-SOCRATIC) LCEL CHAIN                                  #
     # ------------------------------------------------------------------ #
 
     def _run_standard(self, mode: Mode, question: str, context: str) -> str:
@@ -133,39 +160,6 @@ class TeachingPipeline:
         return chain.invoke({
             "context":  context,
             "question": question,
-        })
-
-    def _run_socratic(
-        self,
-        mode: Mode,
-        question: str,
-        context: str,
-        history: list[dict],
-    ) -> str:
-        """
-        Multi-turn LCEL chain for Socratic mode.
-        Includes last 6 messages of history as MessagesPlaceholder.
-        """
-        prompt = ChatPromptTemplate.from_messages([
-            ("system", mode.system_prompt + "\n\n<source_passages>\n{context}\n</source_passages>"),
-            MessagesPlaceholder(variable_name="history"),
-            ("human", "{question}"),
-        ])
-
-        chain = prompt | self.llm | StrOutputParser()
-
-        # Convert history dicts to LangChain message objects
-        lc_history = []
-        for turn in history[-6:]:
-            if turn["role"] == "user":
-                lc_history.append(HumanMessage(content=turn["content"]))
-            elif turn["role"] == "assistant":
-                lc_history.append(AIMessage(content=turn["content"]))
-
-        return chain.invoke({
-            "context":  context,
-            "question": question,
-            "history":  lc_history,
         })
 
     # ------------------------------------------------------------------ #
@@ -196,12 +190,12 @@ class TeachingPipeline:
                 score += 1
 
             feedback.append({
-                "id":           q["id"],
-                "question":     q["question"],
-                "user_answer":  user_answers.get(qid, "(no answer)"),
+                "id":             q["id"],
+                "question":       q["question"],
+                "user_answer":    user_answers.get(qid, "(no answer)"),
                 "correct_answer": q["answer"],
-                "is_correct":   correct,
-                "explanation":  q.get("explanation", ""),
+                "is_correct":     correct,
+                "explanation":    q.get("explanation", ""),
             })
 
         return {"score": score, "total": len(questions), "feedback": feedback}
@@ -210,7 +204,7 @@ class TeachingPipeline:
     #  HELPERS                                                             #
     # ------------------------------------------------------------------ #
 
-    def _build_context(self, chunks: list[Chunk]) -> str:
+    def _build_context(self, chunks) -> str:
         parts = []
         for i, c in enumerate(chunks, 1):
             src  = c.metadata.get("source", "d2l-en.pdf")
@@ -218,6 +212,13 @@ class TeachingPipeline:
             hdr  = f"[{i}] {src}" + (f", p.{page}" if page else "")
             parts.append(f"{hdr}\n{c.text}")
         return "\n\n---\n\n".join(parts)
+
+    def _infer_topic(self, history: list[dict]) -> str:
+        """The topic is whatever the student first asked about."""
+        for turn in history:
+            if turn["role"] == "user":
+                return turn["content"]
+        return "this concept"
 
     def _safe_json(self, text: str) -> dict | None:
         clean = text.strip()
@@ -243,8 +244,8 @@ class TeachingPipeline:
         chain = prompt | ChatOpenAI(
             model=self.MODEL,
             temperature=0,
-            max_tokens=5,
-            openai_api_key=os.environ["OPENAI_API_KEY"],
+            max_completion_tokens=5,
+            api_key= lambda: os.environ["OPENAI_API_KEY"],
         ) | StrOutputParser()
 
         return "yes" in chain.invoke({}).lower()

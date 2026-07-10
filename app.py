@@ -64,6 +64,8 @@ if "history"        not in st.session_state: st.session_state.history = []
 if "quiz_state"     not in st.session_state: st.session_state.quiz_state = None
 if "card_revealed"  not in st.session_state: st.session_state.card_revealed = set()
 
+if "socratic_stuck_count" not in st.session_state:
+    st.session_state.socratic_stuck_count = 0
 pipeline = load_pipeline()
 
 MODE_ICONS = {"explain":"💡","quiz":"✏️","summarise":"📋","flashcards":"🗂️","socratic":"🤔"}
@@ -85,6 +87,7 @@ with st.sidebar:
         ):
             st.session_state.mode       = key
             st.session_state.history    = []
+            st.session_state.socratic_stuck_count = 0
             st.session_state.quiz_state = None
             st.session_state.card_revealed = set()
             st.rerun()
@@ -240,17 +243,48 @@ if prompt:
 
     with st.chat_message("assistant", avatar="🎓"):
         with st.spinner("Thinking..."):
-            hist   = st.session_state.history[:-1] if mode_key == "socratic" else []
-            result = pipeline.run(mode_key, prompt, hist, top_k=top_k)
+            hist = st.session_state.history[:-1] if mode_key == "socratic" else []
+            result = pipeline.run(
+                mode_key,
+                prompt,
+                hist,
+                top_k=top_k,
+                stuck_count=st.session_state.socratic_stuck_count,
+            )
+            
+
 
         raw    = result["raw"]
         parsed = result["parsed"]
         qid    = str(uuid.uuid4())[:8]
+        if result.get("socratic_meta"):
+                st.session_state.socratic_stuck_count = result["socratic_meta"]["stuck_count"]    
+        else:
+            st.markdown(raw)
+
+        meta = result.get("socratic_meta")
+        if meta:
+            badge_map = {
+                "continue":   ("🔵", "Keep going"),
+                "stuck":      ("🟡", "Building up to a hint"),
+                "understood": ("🟢", "Got it!"),
+                "concluded":  ("✅", "Dialogue complete"),
+            }
+            icon, label = badge_map.get(meta["status"], ("⚪", meta["status"]))
+            st.caption(f"{icon} {label} · turn {meta['turn_count']}/6")
+
+
+        # ── 5. (Optional) disable chat input once concluded ──
+        # After appending the turn to history, check if the dialogue ended:
+
+        if mode_key == "socratic" and turn.get("socratic_meta", {}).get("is_concluded"):
+            st.success("🎓 Dialogue complete! Ask about a new topic or switch modes to continue.")
 
         turn = {
             "role": "assistant", "content": raw,
             "parsed": parsed, "mode": mode_key,
             "sources": result["sources"], "quiz_id": qid,
+            "socratic_meta": result.get("socratic_meta"),   
         }
 
         if mode_key == "quiz" and parsed:
