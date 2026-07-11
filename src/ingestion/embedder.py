@@ -23,7 +23,7 @@ class Embedder:
     def __init__(self):
         self._model = OpenAIEmbeddings(
             model=self.MODEL,
-            openai_api_key=os.environ["OPENAI_API_KEY"],
+            api_key= lambda : os.environ["OPENAI_API_KEY"],
         )
 
     def embed(self, texts: list[str]) -> list[list[float]]:
