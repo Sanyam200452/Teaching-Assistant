@@ -66,11 +66,27 @@ class DocumentChunker:
         if ext not in {".pdf", ".docx", ".html", ".htm", ".md", ".txt"}:
             print(f"  ⚠️  Unsupported: {ext}")
             return []
+        from docling.document_converter import DocumentConverter, PdfFormatOption
+        from docling.datamodel.pipeline_options import PdfPipelineOptions
+        from docling.datamodel.accelerator_options import AcceleratorOptions, AcceleratorDevice
+        from docling.datamodel.base_models import InputFormat
 
-        # DoclingLoader handles PDF, DOCX, HTML, MD, and more via the
-        # same interface — Docling auto-detects the format.
+        pipeline_options = PdfPipelineOptions()
+        pipeline_options.do_ocr = False   # skip OCR entirely — D2L is a native text PDF
+        pipeline_options.accelerator_options = AcceleratorOptions(
+                                                                    num_threads=8,
+                                                                    device=AcceleratorDevice.AUTO,
+                                                                )
+
+        converter = DocumentConverter(
+            format_options={
+                InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options)
+            }
+        )
+
         loader = DoclingLoader(
             file_path=str(path),
+            converter=converter,              # ← pass it in here
             export_type=ExportType.DOC_CHUNKS,
             chunker=HybridChunker(max_tokens=self.max_tokens),
         )

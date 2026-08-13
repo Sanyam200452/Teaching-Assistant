@@ -16,10 +16,12 @@ import argparse
 import os
 import sys
 import time
+import pickle
 from pathlib import Path
 from dotenv import load_dotenv
 
 load_dotenv()
+os.environ["TORCHDYNAMO_DISABLE"] = "1"
 
 # Validate env vars before doing anything
 REQUIRED = ["OPENAI_API_KEY", "QDRANT_URL", "QDRANT_API_KEY", "COHERE_API_KEY"]
@@ -31,9 +33,11 @@ for key in REQUIRED:
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--pdf",      default="./d2l-en.pdf")
-    parser.add_argument("--strategy", default="hi_res", choices=["fast", "hi_res"])
-    parser.add_argument("--force",    action="store_true", help="Re-index even if data exists")
+    parser.add_argument("--pdf",        default="./d2l-en.pdf")
+    parser.add_argument("--max-tokens", type=int, default=512,
+                         help="Token budget per chunk for Docling's HybridChunker "
+                              "(roughly maps to the old chunk_size in characters)")
+    parser.add_argument("--force", action="store_true", help="Re-index even if data exists")
     args = parser.parse_args()
 
     pdf = Path(args.pdf)
@@ -54,17 +58,29 @@ def main():
         sys.exit(0)
 
     # ── Load + chunk ──────────────────────────────────────────────────
-    print(f"\n📖 Loading and chunking {pdf.name} (strategy={args.strategy})...")
-    chunker = DocumentChunker(
-        chunk_size=768,
-        chunk_overlap=96,
-        strategy=args.strategy,
-    )
-    chunks = chunker.load_and_chunk(pdf)
+    # Docling does its own layout parsing (no fast/hi_res split like
+    # unstructured had) and HybridChunker chunks by document structure
+    # within a token budget rather than a character count.
+    print(f"\n📖 Loading and chunking {pdf.name} (max_tokens={args.max_tokens})...")
+    print("   First run downloads Docling's layout model (~a few hundred MB, cached after).")
+
+    chunker = DocumentChunker(max_tokens=args.max_tokens)
+
+
+    cache_path = Path("chunks_cache.pkl")
+    if cache_path.exists() and not args.force:
+        print("📦 Loading chunks from cache...")
+        with open(cache_path, "rb") as f:
+            chunks = pickle.load(f)
+    else:
+        chunks = chunker.load_and_chunk(pdf)
+        with open(cache_path, "wb") as f:
+            pickle.dump(chunks, f)
+    print("   (cached to chunks_cache.pkl in case embedding fails)")
     print(f"\n✅ {len(chunks)} chunks created")
 
     if not chunks:
-        print("❌ No chunks produced. Check the PDF and strategy.")
+        print("❌ No chunks produced. Check the PDF.")
         sys.exit(1)
 
     # ── Embed ─────────────────────────────────────────────────────────
@@ -89,11 +105,13 @@ def main():
     BM25Store().index(chunks)
 
     # ── Summary ───────────────────────────────────────────────────────
-    has_page = sum(1 for c in chunks if c.metadata.get("page"))
-    has_code = sum(1 for c in chunks if c.metadata.get("has_code"))
+    has_page    = sum(1 for c in chunks if c.metadata.get("page"))
+    has_section = sum(1 for c in chunks if c.metadata.get("section"))
+    has_code    = sum(1 for c in chunks if c.metadata.get("has_code"))
     print(f"\n✅ Done — {len(chunks)} chunks indexed.")
-    print(f"   Page numbers: {has_page}/{len(chunks)} chunks")
-    print(f"   Code chunks:  {has_code}/{len(chunks)} chunks")
+    print(f"   Page numbers:   {has_page}/{len(chunks)} chunks")
+    print(f"   Section titles: {has_section}/{len(chunks)} chunks")
+    print(f"   Code chunks:    {has_code}/{len(chunks)} chunks")
     print("\n   Next steps:")
     print("   1. git add bm25_index.pkl && git commit -m 'add BM25 index'")
     print("   2. Deploy to Streamlit Cloud")
