@@ -26,10 +26,25 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from collections import Counter
 
-from langchain_docling import DoclingLoader
+from langchain_docling.loader import DoclingLoader
 from langchain_docling.loader import ExportType
-from docling.chunking import HybridChunker
+from docling_core.transforms.chunker.hybrid_chunker import HybridChunker
 from langchain_core.documents import Document
+from docling.document_converter import DocumentConverter, PdfFormatOption
+from docling.datamodel.pipeline_options import PdfPipelineOptions
+from docling.datamodel.accelerator_options import AcceleratorOptions, AcceleratorDevice
+from docling.datamodel.base_models import InputFormat
+import os 
+from pathlib import Path
+import json
+from docling.datamodel.base_models import InputFormat
+from docling_core.transforms.chunker.hybrid_chunker import HybridChunker
+
+from dotenv import load_dotenv
+import re
+
+load_dotenv()
+os.environ["TORCHDYNAMO_DISABLE"] = "1"
 
 
 @dataclass
@@ -58,6 +73,129 @@ class DocumentChunker:
         self.max_tokens = max_tokens
         self.strategy = strategy    # not used — Docling doesn't have a fast/hi_res split
 
+
+    def test_load_and_chunk(
+        self,
+        path: Path,
+        page_range: tuple[int, int] | None = None,
+    ) -> list:
+        """
+        Load and chunk a PDF with Docling.
+
+        page_range:
+            Optional (start_page, end_page).
+            Example: (1, 20) processes only pages 1-20.
+            Use None to process the entire PDF.
+        """
+
+        ext = path.suffix.lower()
+
+        print(
+            f"📄 Loading {path.name} "
+            f"({path.stat().st_size / 1024 / 1024:.1f} MB)..."
+        )
+
+        if ext not in {".pdf", ".docx", ".html", ".htm", ".md", ".txt"}:
+            print(f"⚠️ Unsupported: {ext}")
+            return []
+
+        # ----------------------------
+        # Docling pipeline configuration
+        # ----------------------------
+
+        pipeline_options = PdfPipelineOptions()
+
+        # D2L is a native-text PDF, so OCR isn't necessary.
+        pipeline_options.do_ocr = False
+
+        # If you don't need table extraction during this test,
+        # disabling it can reduce processing time.
+        pipeline_options.do_table_structure = True
+
+        pipeline_options.accelerator_options = AcceleratorOptions(
+            num_threads=8,
+            device=AcceleratorDevice.AUTO,
+        )
+
+        converter = DocumentConverter(
+            format_options={
+                InputFormat.PDF: PdfFormatOption(
+                    pipeline_options=pipeline_options
+                )
+            }
+        )
+
+        # ----------------------------
+        # LangChain Docling loader
+        # ----------------------------
+
+        loader = DoclingLoader(
+            file_path=str(path),
+            converter=converter,
+            export_type=ExportType.DOC_CHUNKS,
+            chunker=HybridChunker(max_tokens=self.max_tokens),
+
+            # This is passed directly to converter.convert(...)
+            convert_kwargs={
+                "page_range": page_range
+            } if page_range else {},
+        )
+
+        # ----------------------------
+        # Run Docling
+        # ----------------------------
+
+        print("⚙️ Processing PDF...")
+
+        docs = loader.load()
+
+        print(f"✅ Created {len(docs)} chunks.")
+
+        # ----------------------------
+        # Save chunks locally
+        # ----------------------------
+
+        output_dir = Path("docling_output")
+        output_dir.mkdir(exist_ok=True)
+
+        json_path = output_dir / f"{path.stem}_chunks.jsonl"
+        txt_path = output_dir / f"{path.stem}_inspection.txt"
+
+        with open(json_path, "w", encoding="utf-8") as f_json, \
+            open(txt_path, "w", encoding="utf-8") as f_txt:
+
+            for i, doc in enumerate(docs):
+
+                dl_meta = doc.metadata.get("dl_meta", {}) or {}
+                headings = dl_meta.get("headings") or []
+
+                # Store only the useful information for inspection.
+                record = {
+                    "chunk_id": i,
+                    "headings": headings,
+                    "metadata": doc.metadata,
+                    "text": doc.page_content,
+                }
+
+                # JSONL = one JSON object per line
+                f_json.write(
+                    json.dumps(record, ensure_ascii=False, default=str) + "\n"
+                )
+
+                # Human-readable file
+                f_txt.write("=" * 80 + "\n")
+                f_txt.write(f"CHUNK {i}\n")
+                f_txt.write(f"HEADINGS: {headings}\n")
+                f_txt.write("-" * 80 + "\n")
+                f_txt.write(doc.page_content)
+                f_txt.write("\n\n")
+
+        print(f"💾 Saved chunks to: {json_path}")
+        print(f"👀 Inspection file: {txt_path}")
+
+        return docs
+    
+
     def load_and_chunk(self, path: Path) -> list[Chunk]:
         """Main entry point — load a file and return Chunks."""
         ext = path.suffix.lower()
@@ -66,10 +204,7 @@ class DocumentChunker:
         if ext not in {".pdf", ".docx", ".html", ".htm", ".md", ".txt"}:
             print(f"  ⚠️  Unsupported: {ext}")
             return []
-        from docling.document_converter import DocumentConverter, PdfFormatOption
-        from docling.datamodel.pipeline_options import PdfPipelineOptions
-        from docling.datamodel.accelerator_options import AcceleratorOptions, AcceleratorDevice
-        from docling.datamodel.base_models import InputFormat
+
 
         pipeline_options = PdfPipelineOptions()
         pipeline_options.do_ocr = False   # skip OCR entirely — D2L is a native text PDF
@@ -86,7 +221,7 @@ class DocumentChunker:
 
         loader = DoclingLoader(
             file_path=str(path),
-            converter=converter,              # ← pass it in here
+            converter=converter,    # ← pass it in here
             export_type=ExportType.DOC_CHUNKS,
             chunker=HybridChunker(max_tokens=self.max_tokens),
         )
@@ -109,45 +244,57 @@ class DocumentChunker:
     #  CONVERSION — Docling's chunk metadata → our Chunk dataclass        #
     # ------------------------------------------------------------------ #
 
+    import re
+       # matches "1.1 ...", "9.3.2 ..." → captures "1", "9"
+
     def _docs_to_chunks(self, docs: list[Document], source: str) -> list[Chunk]:
-        """
-        Docling's DOC_CHUNKS export gives each LangChain Document a
-        `dl_meta` field in metadata — a dict describing where in the
-        document this chunk came from: headings, page numbers, and the
-        types of the original doc items (text, code, table, picture...).
-        """
+        NUMBERED_HEADING = re.compile(r'^(\d+)\.\d+')
         result: list[Chunk] = []
         element_types = Counter()
+
+        current_chapter_num   = None   # e.g. "1", "9"
+        current_chapter_title = None   # e.g. "Introduction", "Preliminaries"
+        pending_title         = None   # last unnumbered heading seen, candidate chapter title
 
         for doc in docs:
             text = doc.page_content.strip()
             if len(text) < 20:
                 continue
 
-            dl_meta = doc.metadata.get("dl_meta", {}) or {}
+            dl_meta  = doc.metadata.get("dl_meta", {}) or {}
+            headings = dl_meta.get("headings") or []
+            heading  = headings[-1].strip() if headings else None
+
+            if heading:
+                match = NUMBERED_HEADING.match(heading)
+                if match:
+                    chapter_num = match.group(1)
+                    if chapter_num != current_chapter_num:
+                        current_chapter_num   = chapter_num
+                        current_chapter_title = pending_title or heading  # fall back if no unnumbered title seen
+                else:
+                    # unnumbered heading — remember it as a chapter-title candidate,
+                    # but don't change the current chapter yet
+                    pending_title = heading
 
             chunk_meta = {"source": source}
 
-            # Page number — Docling stores provenance per doc item;
-            # take the page of the first item in this chunk.
             page = self._extract_page(dl_meta)
             if page:
                 chunk_meta["page"] = page
 
-            # Section — the nearest heading above this chunk, if any.
-            headings = dl_meta.get("headings") or []
-            if headings:
-                chunk_meta["section"] = headings[-1]
+            if heading:
+                chunk_meta["section"] = heading
+            if current_chapter_num:
+                chunk_meta["chapter"] = current_chapter_num
+                chunk_meta["chapter_title"] = current_chapter_title
 
-            # Element type breakdown — used to flag code blocks etc.
             doc_items = dl_meta.get("doc_items") or []
             labels = [item.get("label", "text") for item in doc_items]
-            primary_label = labels[0] if labels else "text"
-            chunk_meta["element_type"] = primary_label
+            chunk_meta["element_type"] = labels[0] if labels else "text"
             chunk_meta["has_code"] = "code" in labels
 
-            element_types[primary_label] += 1
-
+            element_types[chunk_meta["element_type"]] += 1
             result.append(Chunk(text=text, metadata=chunk_meta))
 
         for label, count in element_types.most_common(6):
@@ -164,3 +311,8 @@ class DocumentChunker:
         if not prov:
             return None
         return prov[0].get("page_no")
+
+
+
+
+    

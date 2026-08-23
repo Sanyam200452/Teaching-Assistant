@@ -8,6 +8,16 @@ Pipeline:
 
 This is the standard LangChain production RAG retrieval pattern.
 
+16-08-2025
+Now supports metadata filtering, cached per (top_k, filter) combination
+rather than a single global cache — different filters need different
+underlying vector retrievers with different search_kwargs baked in.
+
+Note: BM25Retriever has no native metadata filtering, so a filter only
+narrows the vector-search half of the ensemble. This is a known
+simplification — a fuller version would maintain per-chapter BM25
+indexes, which is more than this project needs.
+
 pip install langchain langchain-community langchain-cohere cohere
 """
 
@@ -50,55 +60,71 @@ class HybridRetriever:
         self.vector_weight = vector_weight
         self.bm25_weight   = bm25_weight
 
-        self._retriever = None   # built lazily on first query
+        # Cache keyed by (top_k, filter) — NOT a single slot — since
+        # different filters need genuinely different retriever chains.
+        self._retriever_cache: dict = {}
 
-    def retrieve(self, query: str, top_k: int | None = None) -> list[Chunk]:
+    def retrieve(
+        self,
+        query: str,
+        top_k: int | None = None,
+        metadata_filter: dict | None = None,
+    ) -> list[Chunk]:
         """
         Run the full hybrid + rerank pipeline.
-        Returns reranked Chunk objects.
+
+        metadata_filter example: {"chapter": "9"}
+        Narrows the vector-search half to chunks from that chapter only.
         """
         k = top_k or self.top_k
-        retriever = self._get_retriever(k)
+        retriever = self._get_retriever(k, metadata_filter)
         lc_docs   = retriever.invoke(query)
         return self._to_chunks(lc_docs)
 
     # ------------------------------------------------------------------ #
-    #  RETRIEVER CONSTRUCTION                                              #
+    #  RETRIEVER CONSTRUCTION (cached per configuration)                   #
     # ------------------------------------------------------------------ #
 
-    def _get_retriever(self, top_k: int) -> ContextualCompressionRetriever:
-        """Build and cache the full retriever pipeline."""
-        if self._retriever is not None:
-            return self._retriever
+    def _get_retriever(
+        self,
+        top_k: int,
+        metadata_filter: dict | None,
+    ) -> ContextualCompressionRetriever:
+        cache_key = (top_k, str(metadata_filter))
+        if cache_key in self._retriever_cache:
+            return self._retriever_cache[cache_key]
 
-        # 1. Vector retriever (LangChain interface from QdrantVectorStore)
-        vector_retriever = self.vector_store.as_langchain_retriever(top_k=top_k)
+        # Vector retriever — filter applied here
+        vector_retriever = self.vector_store.as_langchain_retriever(
+            top_k=top_k,
+            metadata_filter=metadata_filter,
+        )
 
-        # 2. BM25 retriever (LangChain BM25Retriever)
+        # BM25 retriever — no filter support, searches the full index
         bm25_retriever = self.bm25_store.as_langchain_retriever(top_k=top_k)
 
-        # 3. Fuse with EnsembleRetriever (weighted reciprocal rank fusion)
         ensemble = EnsembleRetriever(
             retrievers=[vector_retriever, bm25_retriever],
             weights=[self.vector_weight, self.bm25_weight],
         )
 
-        # 4. Wrap with Cohere reranker
         cohere_reranker = CohereRerank(
             cohere_api_key=os.environ["COHERE_API_KEY"],
             model="rerank-english-v3.0",
             top_n=self.top_n,
         )
 
-        self._retriever = ContextualCompressionRetriever(
+        retriever = ContextualCompressionRetriever(
             base_compressor=cohere_reranker,
             base_retriever=ensemble,
         )
-        return self._retriever
+
+        self._retriever_cache[cache_key] = retriever
+        return retriever
 
     def invalidate(self):
-        """Reset the cached retriever (call if stores are reloaded)."""
-        self._retriever = None
+        """Clear the entire cache (call if the stores are reloaded)."""
+        self._retriever_cache = {}
 
     # ------------------------------------------------------------------ #
     #  CONVERSION                                                          #

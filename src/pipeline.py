@@ -83,21 +83,23 @@ class TeachingPipeline:
         user_message: str,
         history: list[dict],
         top_k: int = 6,
-        stuck_count: int = 0,   # only used by Socratic mode
+        stuck_count: int = 0,
+        metadata_filter: dict | None = None,   # ← new — e.g. {"chapter": "9"}
     ) -> dict:
         """
-        Run one turn. Returns:
-          {
-            "raw": str,
-            "parsed": dict | None,
-            "sources": list[dict],
-            "socratic_meta": dict | None,   # only present for socratic mode
-          }
+        Run one turn. metadata_filter, if given, restricts vector search
+        to matching chunks only (e.g. a single chapter). BM25 search is
+        unaffected — it always searches the full index.
         """
         mode: Mode = MODES[mode_key]
-
-        # 1. Retrieve — same hybrid + rerank pipeline for every mode
-        chunks  = self.retriever.retrieve(user_message, top_k=top_k)
+    
+        # 1. Retrieve — pass metadata_filter through
+        chunks  = self.retriever.retrieve(
+            user_message,
+            top_k=top_k,
+            metadata_filter=metadata_filter,   # ← new
+        )
+        context = self._build_context(chunks)
         context = self._build_context(chunks)
     # 2. Build and invoke the LCEL chain for this mode
         socratic_meta = None

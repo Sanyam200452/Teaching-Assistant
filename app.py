@@ -7,6 +7,7 @@ import os
 import uuid
 import streamlit as st
 
+
 # Pull Streamlit secrets into env before any imports that need them
 for key in ("OPENAI_API_KEY", "QDRANT_URL", "QDRANT_API_KEY", "COHERE_API_KEY"):
     if key in st.secrets:
@@ -14,6 +15,19 @@ for key in ("OPENAI_API_KEY", "QDRANT_URL", "QDRANT_API_KEY", "COHERE_API_KEY"):
 
 from src.pipeline import load_pipeline   # noqa: E402
 from src.modes import MODES              # noqa: E402
+
+import json
+ 
+@st.cache_data
+def load_chapters() -> list[tuple[str, str]]:
+    """Returns [(chapter_num, chapter_title), ...] sorted numerically."""
+    try:
+        with open("chapters.json") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return []
+ 
+CHAPTERS = load_chapters()
 
 # ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -63,9 +77,7 @@ if "mode"           not in st.session_state: st.session_state.mode = "explain"
 if "history"        not in st.session_state: st.session_state.history = []
 if "quiz_state"     not in st.session_state: st.session_state.quiz_state = None
 if "card_revealed"  not in st.session_state: st.session_state.card_revealed = set()
-
-if "socratic_stuck_count" not in st.session_state:
-    st.session_state.socratic_stuck_count = 0
+if "socratic_stuck_count" not in st.session_state: st.session_state.socratic_stuck_count = 0
 pipeline = load_pipeline()
 
 MODE_ICONS = {"explain":"💡","quiz":"✏️","summarise":"📋","flashcards":"🗂️","socratic":"🤔"}
@@ -94,6 +106,15 @@ with st.sidebar:
 
     st.divider()
     top_k = st.slider("Chunks to retrieve", 3, 12, 6)
+    chapter_options = ["All chapters"] + [f"{num}. {title}" for num, title in CHAPTERS]
+    selected_chapter = st.sidebar.selectbox("Restrict to chapter", chapter_options)
+    
+    if selected_chapter == "All chapters":
+        metadata_filter = None
+    else:
+        chapter_num = selected_chapter.split(".", 1)[0].strip()
+        metadata_filter = {"chapter": chapter_num}
+
     st.divider()
 
     st.markdown("**Try asking:**")
@@ -250,6 +271,7 @@ if prompt:
                 hist,
                 top_k=top_k,
                 stuck_count=st.session_state.socratic_stuck_count,
+                metadata_filter=metadata_filter,   # ← new
             )
             
 
@@ -301,6 +323,9 @@ if prompt:
                 pg = f", p.{s['page']}" if s.get("page") else ""
                 st.markdown(f"`{s['source']}{pg}` · score `{s['score']}`")
                 st.caption(s["text"] + "...")
+
                 st.divider()
+            if metadata_filter:
+                st.caption(f"🔍 Search scoped to Chapter {metadata_filter['chapter']}")
 
     st.session_state.history.append(turn)

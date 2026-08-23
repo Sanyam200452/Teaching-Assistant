@@ -7,6 +7,8 @@ LangChain's QdrantVectorStore wraps qdrant-client and provides:
 
 We keep the raw QdrantClient for admin operations (create collection,
 check if data exists) since LangChain doesn't expose those directly.
+Now supports metadata filtering (e.g. restrict search to one chapter)
+via as_langchain_retriever(metadata_filter=...).
 
 pip install langchain-qdrant qdrant-client
 """
@@ -21,7 +23,10 @@ from langchain_qdrant import QdrantVectorStore
 from langchain_openai import OpenAIEmbeddings
 from langchain_core.documents import Document
 from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, VectorParams, PointStruct
+from qdrant_client.models import (
+    Distance, VectorParams, PointStruct,
+    Filter, FieldCondition, MatchValue,
+)
 
 from src.ingestion.chunker import Chunk
 # export OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
@@ -120,15 +125,23 @@ class VectorStore:
             )
 
     # ------------------------------------------------------------------ #
-    #  SEARCH                                                              #
+    #  SEARCH (raw client, pre-computed vector)                            #
     # ------------------------------------------------------------------ #
 
-    def search(self, query_vector: list[float], top_k: int = 10) -> list[Chunk]:
-        """Search using a pre-computed query vector."""
+    def search(
+        self,
+        query_vector: list[float],
+        top_k: int = 10,
+        metadata_filter: dict | None = None,
+    ) -> list[Chunk]:
+        """Search using a pre-computed query vector, with optional metadata filter."""
+        query_filter = self._build_filter(metadata_filter)
+
         results = self._raw_client.search(
             collection_name=self.collection_name,
             query_vector=query_vector,
             limit=top_k,
+            query_filter=query_filter,
             with_payload=True,
         )
         return [
@@ -140,9 +153,42 @@ class VectorStore:
             for r in results
         ]
 
-    def as_langchain_retriever(self, top_k: int = 10):
+    # ------------------------------------------------------------------ #
+    #  LANGCHAIN RETRIEVER (used by HybridRetriever / EnsembleRetriever)   #
+    # ------------------------------------------------------------------ #
+
+    def as_langchain_retriever(self, top_k: int = 10, metadata_filter: dict | None = None):
         """
-        Return a LangChain BaseRetriever.
-        Used by EnsembleRetriever in hybrid_retriever.py.
+        Return a LangChain BaseRetriever, optionally scoped to a metadata filter.
+
+        metadata_filter example: {"chapter": "9"}
+        Matches chunks where payload["metadata"]["chapter"] == "9" exactly.
         """
-        return self._store.as_retriever(search_kwargs={"k": top_k})
+        search_kwargs = {"k": top_k}
+        qdrant_filter = self._build_filter(metadata_filter)
+        if qdrant_filter is not None:
+            search_kwargs["filter"] = qdrant_filter
+        return self._store.as_retriever(search_kwargs=search_kwargs)
+
+    # ------------------------------------------------------------------ #
+    #  FILTER BUILDING                                                     #
+    # ------------------------------------------------------------------ #
+
+    def _build_filter(self, metadata_filter: dict | None) -> Filter | None:
+        """
+        Translate a plain dict like {"chapter": "9"} into a Qdrant Filter.
+        Payload keys are nested under "metadata." since that's how we store
+        them in upsert() — payload={"page_content": ..., "metadata": {...}}.
+        """
+        if not metadata_filter:
+            return None
+
+        conditions = []
+        for key, value in metadata_filter.items():
+            if value is None:
+                continue
+            conditions.append(
+                FieldCondition(key=f"metadata.{key}", match=MatchValue(value=value))
+            )
+
+        return Filter(must=conditions) if conditions else None

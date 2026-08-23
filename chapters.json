@@ -1,0 +1,50 @@
+[
+  [
+    "1",
+    "Introduction"
+  ],
+  [
+    "2",
+    "Preliminaries"
+  ],
+  [
+    "3",
+    "Linear Neural Networks for Regression"
+  ],
+  [
+    "4",
+    "Using Weight Decay"
+  ],
+  [
+    "5",
+    "Multilayer Perceptrons"
+  ],
+  [
+    "6",
+    "Builders' Guide"
+  ],
+  [
+    "7",
+    "Convolutional Neural Networks"
+  ],
+  [
+    "8",
+    "Modern Convolutional Neural Networks"
+  ],
+  [
+    "9",
+    "Fig. 9.1"
+  ],
+  [
+    "10",
+    "Fig. 9.7.2"
+  ],
+  [
+    "11",
+    "Attention Mechanisms and Transformers"
+  ],
+  [
+    "12",
+    "Optimization Algorithms"
+  ]
+]

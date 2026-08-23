@@ -19,6 +19,7 @@ import time
 import pickle
 from pathlib import Path
 from dotenv import load_dotenv
+import json
 
 load_dotenv()
 os.environ["TORCHDYNAMO_DISABLE"] = "1"
@@ -82,6 +83,22 @@ def main():
     if not chunks:
         print("❌ No chunks produced. Check the PDF.")
         sys.exit(1)
+
+    chapter_pairs = sorted(
+    {
+        (c.metadata["chapter"], c.metadata.get("chapter_title", ""))
+        for c in chunks
+        if c.metadata.get("chapter")
+    },
+    key=lambda pair: int(pair[0]),
+)
+ 
+    with open("chapters.json", "w", encoding="utf-8") as f:
+        json.dump(chapter_pairs, f, indent=2)
+    
+    print(f"   📚 {len(chapter_pairs)} chapters found → saved to chapters.json")
+    for num, title in chapter_pairs:
+        print(f"      {num}. {title}")
 
     # ── Embed ─────────────────────────────────────────────────────────
     embedder = Embedder()
