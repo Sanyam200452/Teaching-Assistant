@@ -8,8 +8,14 @@ langchain-openai>=0.1.0
 langchain-qdrant>=0.1.0
 langchain-cohere>=0.1.0
 langchain-text-splitters
+docling
+langchain-docling
 openai>=1.30.0
 cohere>=5.5.0
+
 qdrant-client>=1.9.0
+
+unstructured[pdf]>=0.14.0
+
 rank-bm25>=0.2.2
 nltk>=3.8
