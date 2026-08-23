@@ -24,8 +24,8 @@ pip install langchain langchain-community langchain-cohere cohere
 from __future__ import annotations
 import os
 
-from langchain.retrievers import EnsembleRetriever
-from langchain.retrievers.contextual_compression import ContextualCompressionRetriever
+from langchain_classic.retrievers import EnsembleRetriever
+from langchain_classic.retrievers.contextual_compression import ContextualCompressionRetriever
 from langchain_cohere import CohereRerank
 from langchain_core.documents import Document
 
