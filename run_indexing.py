@@ -35,10 +35,8 @@ for key in REQUIRED:
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--pdf",        default="./d2l-en.pdf")
-    parser.add_argument("--max-tokens", type=int, default=512,
-                         help="Token budget per chunk for Docling's HybridChunker "
-                              "(roughly maps to the old chunk_size in characters)")
-    parser.add_argument("--force", action="store_true", help="Re-index even if data exists")
+    parser.add_argument("--max-tokens", type=int, default=512)
+    parser.add_argument("--force",      action="store_true", help="Re-index even if data exists")
     args = parser.parse_args()
 
     pdf = Path(args.pdf)
@@ -59,46 +57,39 @@ def main():
         sys.exit(0)
 
     # ── Load + chunk ──────────────────────────────────────────────────
-    # Docling does its own layout parsing (no fast/hi_res split like
-    # unstructured had) and HybridChunker chunks by document structure
-    # within a token budget rather than a character count.
-    print(f"\n📖 Loading and chunking {pdf.name} (max_tokens={args.max_tokens})...")
-    print("   First run downloads Docling's layout model (~a few hundred MB, cached after).")
-
-    chunker = DocumentChunker(max_tokens=args.max_tokens)
-
-
     cache_path = Path("chunks_cache.pkl")
     if cache_path.exists() and not args.force:
-        print("📦 Loading chunks from cache...")
+        print("📦 Loading chunks from cache (chunks_cache.pkl)...")
         with open(cache_path, "rb") as f:
             chunks = pickle.load(f)
+        print(f"   {len(chunks)} chunks loaded from cache")
     else:
-        chunks = chunker.load_and_chunk(pdf)
+        print(f"\n📖 Loading and chunking {pdf.name} (max_tokens={args.max_tokens})...")
+        print("   First run downloads Docling's layout model (~a few hundred MB, cached after).")
+
+        chunker = DocumentChunker(max_tokens=args.max_tokens)
+        chunks  = chunker.load_and_chunk(pdf)
+        print(f"\n✅ {len(chunks)} chunks created")
+
         with open(cache_path, "wb") as f:
             pickle.dump(chunks, f)
-    print("   (cached to chunks_cache.pkl in case embedding fails)")
-    print(f"\n✅ {len(chunks)} chunks created")
+        print("   (cached to chunks_cache.pkl in case embedding fails)")
 
     if not chunks:
         print("❌ No chunks produced. Check the PDF.")
         sys.exit(1)
 
-    chapter_pairs = sorted(
-    {
-        (c.metadata["chapter"], c.metadata.get("chapter_title", ""))
-        for c in chunks
-        if c.metadata.get("chapter")
-    },
-    key=lambda pair: int(pair[0]),
-)
- 
-    with open("chapters.json", "w", encoding="utf-8") as f:
-        json.dump(chapter_pairs, f, indent=2)
-    
-    print(f"   📚 {len(chapter_pairs)} chapters found → saved to chapters.json")
-    for num, title in chapter_pairs:
-        print(f"      {num}. {title}")
+    # ── Sanity check before spending API calls ────────────────────────
+    # A partial/corrupted Docling run can still return a non-empty list —
+    # confirm the count looks like a full book, not a partial one.
+    if len(chunks) < 1500:
+        print(f"\n⚠️  Only {len(chunks)} chunks — the full book usually produces 2000+.")
+        print("   This may indicate a partial/corrupted parse (e.g. a Docling")
+        print("   race-condition crash that silently drops pages).")
+        confirm = input("   Continue anyway? [y/N]: ").strip().lower()
+        if confirm != "y":
+            print("   Aborted. Delete chunks_cache.pkl and re-run with --force to retry parsing.")
+            sys.exit(1)
 
     # ── Embed ─────────────────────────────────────────────────────────
     embedder = Embedder()

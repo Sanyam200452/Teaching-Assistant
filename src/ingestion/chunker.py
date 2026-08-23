@@ -207,7 +207,7 @@ class DocumentChunker:
 
 
         pipeline_options = PdfPipelineOptions()
-        pipeline_options.do_ocr = False   # skip OCR entirely — D2L is a native text PDF
+        pipeline_options.do_ocr = False   # D2L is a native-text PDF, OCR unnecessary
         pipeline_options.accelerator_options = AcceleratorOptions(
                                                                     num_threads=8,
                                                                     device=AcceleratorDevice.AUTO,
@@ -244,38 +244,16 @@ class DocumentChunker:
     #  CONVERSION — Docling's chunk metadata → our Chunk dataclass        #
     # ------------------------------------------------------------------ #
 
-    import re
-       # matches "1.1 ...", "9.3.2 ..." → captures "1", "9"
-
     def _docs_to_chunks(self, docs: list[Document], source: str) -> list[Chunk]:
-        NUMBERED_HEADING = re.compile(r'^(\d+)\.\d+')
         result: list[Chunk] = []
         element_types = Counter()
-
-        current_chapter_num   = None   # e.g. "1", "9"
-        current_chapter_title = None   # e.g. "Introduction", "Preliminaries"
-        pending_title         = None   # last unnumbered heading seen, candidate chapter title
 
         for doc in docs:
             text = doc.page_content.strip()
             if len(text) < 20:
                 continue
 
-            dl_meta  = doc.metadata.get("dl_meta", {}) or {}
-            headings = dl_meta.get("headings") or []
-            heading  = headings[-1].strip() if headings else None
-
-            if heading:
-                match = NUMBERED_HEADING.match(heading)
-                if match:
-                    chapter_num = match.group(1)
-                    if chapter_num != current_chapter_num:
-                        current_chapter_num   = chapter_num
-                        current_chapter_title = pending_title or heading  # fall back if no unnumbered title seen
-                else:
-                    # unnumbered heading — remember it as a chapter-title candidate,
-                    # but don't change the current chapter yet
-                    pending_title = heading
+            dl_meta = doc.metadata.get("dl_meta", {}) or {}
 
             chunk_meta = {"source": source}
 
@@ -283,18 +261,18 @@ class DocumentChunker:
             if page:
                 chunk_meta["page"] = page
 
-            if heading:
-                chunk_meta["section"] = heading
-            if current_chapter_num:
-                chunk_meta["chapter"] = current_chapter_num
-                chunk_meta["chapter_title"] = current_chapter_title
+            headings = dl_meta.get("headings") or []
+            if headings:
+                chunk_meta["section"] = headings[-1].strip()
 
             doc_items = dl_meta.get("doc_items") or []
             labels = [item.get("label", "text") for item in doc_items]
-            chunk_meta["element_type"] = labels[0] if labels else "text"
+            primary_label = labels[0] if labels else "text"
+            chunk_meta["element_type"] = primary_label
             chunk_meta["has_code"] = "code" in labels
 
-            element_types[chunk_meta["element_type"]] += 1
+            element_types[primary_label] += 1
+
             result.append(Chunk(text=text, metadata=chunk_meta))
 
         for label, count in element_types.most_common(6):
