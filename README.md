@@ -35,8 +35,8 @@ INDEXING (run once locally)               QUERYING (every message)
 d2l-en.pdf                                user message + mode
     │                                          │
     ▼                                          ├─────────────────┐
-UnstructuredPDFLoader                          ▼                 ▼
-(LangChain + unstructured.io,             Qdrant search      BM25 search
+DoclingLoader                                  ▼                 ▼
+(LangChain + Docling.io,                  Qdrant search      BM25 search
  structure-aware: code/tables/            (vector)           (keyword)
  equations kept intact)                        └────────┬────────┘
     │                                                   ▼
@@ -65,8 +65,8 @@ Qdrant Cloud                                             │
 
 ## Key technical decisions
 
-**Why LangChain's `UnstructuredPDFLoader` instead of a plain text splitter?**
-The book is full of code blocks, LaTeX equations, and tables. A naive character splitter would cut a chunk mid-equation or mid-code-block. `UnstructuredPDFLoader(mode="elements")` classifies every element (`Title`, `NarrativeText`, `CodeSnippet`, `Table`) before any splitting happens, so structure is never destroyed by the chunker.
+**Why LangChain's `DoclingLoader` instead of a plain text splitter?**
+The book is full of code blocks, LaTeX equations, and tables. A naive character splitter would cut a chunk mid-equation or mid-code-block. `DoclingLoader` classifies every element (`Title`, `NarrativeText`, `CodeSnippet`, `Table`) before any splitting happens, so structure is never destroyed by the chunker.
 
 **Why hybrid search (`EnsembleRetriever`) instead of vector-only?**
 Vector search is strong on paraphrased questions but weak on exact terms — model names, equation labels, acronyms like "Adam" or "ReLU". BM25 catches those. `EnsembleRetriever` fuses both ranked lists with weighted reciprocal rank fusion, giving consistently better recall than either alone with no score calibration required.
@@ -88,7 +88,7 @@ Both modes instruct the LLM to return a strict JSON schema, which the app parses
 |---|---|---|
 | Orchestration | LangChain (LCEL) | Standard chain interface, composable |
 | Multi-turn agent | LangGraph | Explicit state machine for Socratic mode |
-| Document loading | `UnstructuredPDFLoader` | Structure-aware, keeps code/equations intact |
+| Document loading | `DoclingLoader` | Structure-aware, keeps code/equations intact |
 | Chunking | `RecursiveCharacterTextSplitter` | Paragraph → sentence → word fallback splitting |
 | Embeddings | `text-embedding-3-small` | 1536 dims, cheap, strong quality |
 | Vector DB | Qdrant Cloud | Free tier, in-memory local dev mode, no server setup |
@@ -114,7 +114,7 @@ teaching-assistant/
 │   ├── pipeline.py                 # Orchestrator — retrieval + mode routing + quiz grading
 │   ├── socratic_graph.py           # LangGraph state machine for Socratic mode
 │   ├── ingestion/
-│   │   ├── chunker.py              # UnstructuredPDFLoader + RecursiveCharacterTextSplitter
+│   │   ├── chunker.py              # DoclingLoader + RecursiveCharacterTextSplitter
 │   │   └── embedder.py             # OpenAIEmbeddings wrapper with query-level caching
 │   └── retrieval/
 │       ├── vector_store.py         # QdrantVectorStore wrapper
