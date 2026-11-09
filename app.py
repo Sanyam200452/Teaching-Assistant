@@ -46,6 +46,7 @@ h1, h2, h3 { font-family: 'DM Serif Display', serif; font-weight: 400; }
 
 .quiz-q {
     background: #fafafa;
+    color: #111315; /* <-- Added explicit dark text color */
     border-left: 3px solid #534AB7;
     padding: 12px 16px;
     border-radius: 0 8px 8px 0;
@@ -59,7 +60,14 @@ h1, h2, h3 { font-family: 'DM Serif Display', serif; font-weight: 400; }
 .score-ok    { background:#faeeda; border:1px solid #FAC775; color:#BA7517; padding:14px 20px; border-radius:10px; text-align:center; }
 .score-poor  { background:#faece7; border:1px solid #F5C4B3; color:#993C1D; padding:14px 20px; border-radius:10px; text-align:center; }
 
-.flashcard   { background:white; border:1px solid rgba(0,0,0,0.1); border-radius:10px; padding:14px 18px; margin:6px 0; }
+.flashcard   { 
+    background: white; 
+    color: #111315; /* <-- Added explicit dark text color */
+    border: 1px solid rgba(0,0,0,0.1); 
+    border-radius: 10px; 
+    padding: 14px 18px; 
+    margin: 6px 0; 
+}
 .card-front  { font-weight:500; font-size:14px; margin-bottom:6px; }
 .card-back   { color:#555; font-size:13px; line-height:1.6; }
 .cat-tag     { font-size:11px; padding:2px 8px; border-radius:20px; margin-top:6px; display:inline-block; }
@@ -299,15 +307,15 @@ if prompt:
         # ── 5. (Optional) disable chat input once concluded ──
         # After appending the turn to history, check if the dialogue ended:
 
-        if mode_key == "socratic" and turn.get("socratic_meta", {}).get("is_concluded"):
-            st.success("🎓 Dialogue complete! Ask about a new topic or switch modes to continue.")
-
         turn = {
             "role": "assistant", "content": raw,
             "parsed": parsed, "mode": mode_key,
             "sources": result["sources"], "quiz_id": qid,
             "socratic_meta": result.get("socratic_meta"),   
         }
+
+        if mode_key == "socratic" and turn.get("socratic_meta", {}).get("is_concluded"):
+            st.success("🎓 Dialogue complete! Ask about a new topic or switch modes to continue.")
 
         if mode_key == "quiz" and parsed:
             st.session_state.quiz_state = {"graded": False}

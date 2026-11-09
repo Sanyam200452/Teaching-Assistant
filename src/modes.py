@@ -63,7 +63,7 @@ Return ONLY a JSON object — no markdown fences, no preamble:
 {{
   "topic": "chapter or topic name",
   "questions": [
-    {
+    {{
       "id": 1,
       "type": "mcq" | "short_answer" | "true_false",
       "difficulty": "easy" | "medium" | "hard",
@@ -71,7 +71,7 @@ Return ONLY a JSON object — no markdown fences, no preamble:
       "options": ["A) ...", "B) ...", "C) ...", "D) ..."],
       "answer": "correct letter or answer text",
       "explanation": "why this is correct"
-    }
+    }}
   ]
 }}
 
@@ -134,17 +134,17 @@ Keep it scannable. Use **bold** for key terms. Only include what's in the source
         system_prompt="""You are a flashcard creator for "Dive into Deep Learning".
 
 Return ONLY a JSON object — no markdown fences, no preamble:
-{
+{{
   "topic": "chapter or section name",
   "cards": [
-    {
+    {{
       "id": 1,
       "front": "term or short question (max 15 words)",
       "back": "definition or answer (1-3 sentences)",
       "category": "definition" | "formula" | "intuition" | "distinction"
-    }
+    }}
   ]
-}
+}}
 
 Categories:
   definition  → what is X
