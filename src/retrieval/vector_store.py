@@ -96,32 +96,30 @@ class VectorStore:
     #  UPSERT                                                              #
     # ------------------------------------------------------------------ #
 
-    def upsert(self, chunks: list[Chunk], embeddings: list[list[float]]):
-        """
-        Upload chunks with pre-computed embeddings to Qdrant.
-        Uses raw client to avoid re-embedding (LangChain's add_documents
-        would call the embedding model again).
-
-        Payload format matches what LangChain's QdrantVectorStore expects:
-          page_content → the text
-          metadata     → dict of metadata fields
-        """
-        points = [
-            PointStruct(
-                id=str(uuid.uuid4()),
-                vector=emb,
-                payload={
-                    "page_content": chunk.text,
-                    "metadata":     chunk.metadata,
-                },
+    def upsert(self, chunks, embeddings):
+        """Upsert chunks and their embeddings into Qdrant in batches to prevent timeouts."""
+        points = []
+        for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
+            # Construct your point object/dict depending on how your code defines it
+            # (usually PointStruct or a dict with id, vector, and payload)
+            points.append(
+                PointStruct(
+                    id=i,  # or uuid, depending on your setup
+                    vector=embedding,
+                    payload={
+                        "text": chunk.page_content if hasattr(chunk, "page_content") else str(chunk),
+                        # include any other metadata fields your project uses
+                    }
+                )
             )
-            for chunk, emb in zip(chunks, embeddings)
-        ]
+
+        # Batch upload in chunks of 100 to prevent WriteTimeouts
         batch_size = 100
         for i in range(0, len(points), batch_size):
+            batch = points[i : i + batch_size]
             self._raw_client.upsert(
                 collection_name=self.collection_name,
-                points=points[i : i + batch_size],
+                points=batch
             )
 
     # ------------------------------------------------------------------ #
