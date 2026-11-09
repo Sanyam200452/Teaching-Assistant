@@ -1,0 +1,494 @@
+
+ConnectError: [WinError 10054] An existing connection was forcibly closed by the remote 
+host
+
+The above exception was the direct cause of the following exception:
+
+────────────────────────── Traceback (most recent call last) ───────────────────────────
+  C:\dev\Teaching-Assistant\venv\Lib\site-packages\qdrant_client\http\api_client.py:13  
+  7 in send_inner                                                                       
+                                                                                        
+    134 │                                                                               
+    135 │   def send_inner(self, request: Request) -> Response:                         
+    136 │   │   try:                                                                    
+  ❱ 137 │   │   │   response = self._client.send(request)                               
+    138 │   │   except Exception as e:                                                  
+    139 │   │   │   raise ResponseHandlingException(e)                                  
+    140 │   │   return response                                                         
+                                                                                        
+  C:\dev\Teaching-Assistant\venv\Lib\site-packages\httpx\_client.py:914 in send         
+                                                                                        
+     911 │   │                                                                          
+     912 │   │   auth = self._build_request_auth(request, auth)                         
+     913 │   │                                                                          
+  ❱  914 │   │   response = self._send_handling_auth(                                   
+     915 │   │   │   request,                                                           
+     916 │   │   │   auth=auth,                                                         
+     917 │   │   │   follow_redirects=follow_redirects,                                 
+                                                                                        
+  C:\dev\Teaching-Assistant\venv\Lib\site-packages\httpx\_client.py:942 in              
+  _send_handling_auth                                                                   
+                                                                                        
+     939 │   │   │   request = next(auth_flow)                                          
+     940 │   │   │                                                                      
+     941 │   │   │   while True:                                                        
+  ❱  942 │   │   │   │   response = self._send_handling_redirects(                      
+     943 │   │   │   │   │   request,                                                   
+     944 │   │   │   │   │   follow_redirects=follow_redirects,                         
+     945 │   │   │   │   │   history=history,                                           
+                                                                                        
+  C:\dev\Teaching-Assistant\venv\Lib\site-packages\httpx\_client.py:979 in              
+  _send_handling_redirects                                                              
+                                                                                        
+     976 │   │   │   for hook in self._event_hooks["request"]:                          
+     977 │   │   │   │   hook(request)                                                  
+     978 │   │   │                                                                      
+  ❱  979 │   │   │   response = self._send_single_request(request)                      
+     980 │   │   │   try:                                                               
+     981 │   │   │   │   for hook in self._event_hooks["response"]:                     
+     982 │   │   │   │   │   hook(response)                                             
+                                                                                        
+  C:\dev\Teaching-Assistant\venv\Lib\site-packages\httpx\_client.py:1014 in             
+  _send_single_request                                                                  
+                                                                                        
+    1011 │   │   │   )                                                                  
+    1012 │   │                                                                          
+    1013 │   │   with request_context(request=request):                                 
+  ❱ 1014 │   │   │   response = transport.handle_request(request)                       
+    1015 │   │                                                                          
+    1016 │   │   assert isinstance(response.stream, SyncByteStream)                     
+    1017                                                                                
+                                                                                        
+  C:\dev\Teaching-Assistant\venv\Lib\site-packages\httpx\_transports\default.py:249 in  
+  handle_request                                                                        
+                                                                                        
+    246 │   │   │   content=request.stream,                                             
+    247 │   │   │   extensions=request.extensions,                                      
+    248 │   │   )                                                                       
+  ❱ 249 │   │   with map_httpcore_exceptions():                                         
+    250 │   │   │   resp = self._pool.handle_request(req)                               
+    251 │   │                                                                           
+    252 │   │   assert isinstance(resp.stream, typing.Iterable)                         
+                                                                                        
+  C:\Users\91857\AppData\Local\Programs\Python\Python311\Lib\contextlib.py:158 in       
+  __exit__                                                                              
+                                                                                        
+    155 │   │   │   │   # tell if we get the same exception back                        
+    156 │   │   │   │   value = typ()                                                   
+    157 │   │   │   try:                                                                
+  ❱ 158 │   │   │   │   self.gen.throw(typ, value, traceback)                           
+    159 │   │   │   except StopIteration as exc:                                        
+    160 │   │   │   │   # Suppress StopIteration *unless* it's the same exception that  
+    161 │   │   │   │   # was passed to throw().  This prevents a StopIteration         
+                                                                                        
+  C:\dev\Teaching-Assistant\venv\Lib\site-packages\httpx\_transports\default.py:118 in  
+  map_httpcore_exceptions                                                               
+                                                                                        
+    115 │   │   │   raise                                                               
+    116 │   │                                                                           
+    117 │   │   message = str(exc)                                                      
+  ❱ 118 │   │   raise mapped_exc(message) from exc                                      
+    119                                                                                 
+    120                                                                                 
+    121 class ResponseStream(SyncByteStream):                                           
+────────────────────────────────────────────────────────────────────────────────────────
+ConnectError: [WinError 10054] An existing connection was forcibly closed by the remote 
+host
+
+During handling of the above exception, another exception occurred:
+
+────────────────────────── Traceback (most recent call last) ───────────────────────────
+  C:\dev\Teaching-Assistant\venv\Lib\site-packages\streamlit\runtime\scriptrunner\exec  
+  _code.py:136 in exec_func_with_error_handling                                         
+                                                                                        
+  C:\dev\Teaching-Assistant\venv\Lib\site-packages\streamlit\runtime\scriptrunner\scri  
+  pt_runner.py:816 in code_to_exec                                                      
+                                                                                        
+  C:\dev\Teaching-Assistant\app.py:81 in <module>                                       
+                                                                                        
+     78 if "quiz_state"     not in st.session_state: st.session_state.quiz_state = Non  
+     79 if "card_revealed"  not in st.session_state: st.session_state.card_revealed =   
+     80 if "socratic_stuck_count" not in st.session_state: st.session_state.socratic_s  
+  ❱  81 pipeline = load_pipeline()                                                      
+     82                                                                                 
+     83 MODE_ICONS = {"explain":"💡","quiz":"✏️","summarise":"📋","flashcards":"🗂️","s  
+     84                                                                                 
+                                                                                        
+  C:\dev\Teaching-Assistant\venv\Lib\site-packages\streamlit\runtime\caching\cache_uti  
+  ls.py:471 in __call__                                                                 
+                                                                                        
+  C:\dev\Teaching-Assistant\venv\Lib\site-packages\streamlit\runtime\caching\cache_uti  
+  ls.py:527 in _get_or_create_cached_value                                              
+                                                                                        
+  C:\dev\Teaching-Assistant\venv\Lib\site-packages\streamlit\runtime\caching\cache_uti  
+  ls.py:589 in _handle_cache_miss                                                       
+                                                                                        
+  C:\dev\Teaching-Assistant\src\pipeline.py:50 in load_pipeline                         
+                                                                                        
+     47 │   │   val = _get_secret(key)                                                  
+     48 │   │   if val:                                                                 
+     49 │   │   │   os.environ[key] = val                                               
+  ❱  50 │   return TeachingPipeline()                                                   
+     51                                                                                 
+     52                                                                                 
+     53 class TeachingPipeline:                                                         
+                                                                                        
+  C:\dev\Teaching-Assistant\src\pipeline.py:59 in __init__                              
+                                                                                        
+     56 │                                                                               
+     57 │   def __init__(self):                                                         
+     58 │   │   self.embedder     = Embedder()                                          
+  ❱  59 │   │   self.vector_store = VectorStore(self.COLLECTION)                        
+     60 │   │   self.bm25_store   = BM25Store()                                         
+     61 │   │   self.retriever    = HybridRetriever(                                    
+     62 │   │   │   self.vector_store,                                                  
+                                                                                        
+  C:\dev\Teaching-Assistant\src\retrieval\vector_store.py:55 in __init__                
+                                                                                        
+     52 │   def __init__(self, collection_name: str = "d2l-book"):                      
+     53 │   │   self.collection_name = collection_name                                  
+     54 │   │   self._raw_client     = self._build_raw_client()                         
+  ❱  55 │   │   self._ensure_collection()                                               
+     56 │   │                                                                           
+     57 │   │   embeddings = OpenAIEmbeddings(                                          
+     58 │   │   │   model=self.MODEL,                                                   
+                                                                                        
+  C:\dev\Teaching-Assistant\src\retrieval\vector_store.py:82 in _ensure_collection      
+                                                                                        
+     79 │   │   return QdrantClient(":memory:")                                         
+     80 │                                                                               
+     81 │   def _ensure_collection(self):                                               
+  ❱  82 │   │   existing = [c.name for c in self._raw_client.get_collections().collect  
+     83 │   │   if self.collection_name not in existing:                                
+     84 │   │   │   self._raw_client.create_collection(                                 
+     85 │   │   │   │   collection_name=self.collection_name,                           
+                                                                                        
+  C:\dev\Teaching-Assistant\venv\Lib\site-packages\qdrant_client\qdrant_client.py:1577  
+  in get_collections                                                                    
+                                                                                        
+    1574 │   │   """                                                                    
+    1575 │   │   assert len(kwargs) == 0, f"Unknown arguments: {list(kwargs.keys())}"   
+    1576 │   │                                                                          
+  ❱ 1577 │   │   return self._client.get_collections(**kwargs)                          
+    1578 │                                                                              
+    1579 │   def get_collection(self, collection_name: str, **kwargs: Any) -> types.Co  
+    1580 │   │   """Get detailed information about specified existing collection        
+                                                                                        
+  C:\dev\Teaching-Assistant\venv\Lib\site-packages\qdrant_client\qdrant_remote.py:1871  
+  in get_collections                                                                    
+                                                                                        
+    1868 │   │   │   )                                                                  
+    1869 │   │                                                                          
+    1870 │   │   result: types.CollectionsResponse | None = (                           
+  ❱ 1871 │   │   │   self.http.collections_api.get_collections().result                 
+    1872 │   │   )                                                                      
+    1873 │   │   assert result is not None, "Get collections returned None"             
+    1874 │   │   return result                                                          
+                                                                                        
+  C:\dev\Teaching-Assistant\venv\Lib\site-packages\qdrant_client\http\api\collections_  
+  api.py:527 in get_collections                                                         
+                                                                                        
+    524 │   │   """                                                                     
+    525 │   │   Get list name of all existing collections                               
+    526 │   │   """                                                                     
+  ❱ 527 │   │   return self._build_for_get_collections()                                
+    528 │                                                                               
+    529 │   def get_optimizations(                                                      
+    530 │   │   self,                                                                   
+                                                                                        
+  C:\dev\Teaching-Assistant\venv\Lib\site-packages\qdrant_client\http\api\collections_  
+  api.py:232 in _build_for_get_collections                                              
+                                                                                        
+    229 │   │   Get list name of all existing collections                               
+    230 │   │   """                                                                     
+    231 │   │   headers = {}                                                            
+  ❱ 232 │   │   return self.api_client.request(                                         
+    233 │   │   │   type_=m.InlineResponse2006,                                         
+    234 │   │   │   method="GET",                                                       
+    235 │   │   │   url="/collections",                                                 
+                                                                                        
+  C:\dev\Teaching-Assistant\venv\Lib\site-packages\qdrant_client\http\api_client.py:98  
+  in request                                                                            
+                                                                                        
+     95 │   │   if "params" in kwargs and "timeout" in kwargs["params"]:                
+     96 │   │   │   kwargs["timeout"] = int(kwargs["params"]["timeout"])                
+     97 │   │   request = self._client.build_request(method, url, **kwargs)             
+  ❱  98 │   │   return self.send(request, type_)                                        
+     99 │                                                                               
+    100 │   @overload                                                                   
+    101 │   def request_sync(self, *, type_: Type[T], **kwargs: Any) -> T:              
+                                                                                        
+  C:\dev\Teaching-Assistant\venv\Lib\site-packages\qdrant_client\http\api_client.py:11  
+  5 in send                                                                             
+                                                                                        
+    112 │   │   return get_event_loop().run_until_complete(self.request(type_=type_, *  
+    113 │                                                                               
+    114 │   def send(self, request: Request, type_: Type[T]) -> T:                      
+  ❱ 115 │   │   response = self.middleware(request, self.send_inner)                    
+    116 │   │                                                                           
+    117 │   │   if response.status_code == 429:                                         
+    118 │   │   │   retry_after_s = response.headers.get("Retry-After", None)           
+                                                                                        
+  C:\dev\Teaching-Assistant\venv\Lib\site-packages\qdrant_client\http\api_client.py:15  
+  2 in new_middleware                                                                   
+                                                                                        
+    149 │   │   │   def inner_send(request: Request) -> Response:                       
+    150 │   │   │   │   return current_middleware(request, call_next)                   
+    151 │   │   │                                                                       
+  ❱ 152 │   │   │   return middleware(request, inner_send)                              
+    153 │   │                                                                           
+    154 │   │   self.middleware = new_middleware                                        
+    155                                                                                 
+                                                                                        
+  C:\dev\Teaching-Assistant\venv\Lib\site-packages\qdrant_client\context_headers.py:39  
+  in rest_headers_middleware                                                            
+                                                                                        
+    36 def rest_headers_middleware(request: Request, call_next: Callable[[Request], Re  
+    37 │   for key, value in get_context_headers().items():                             
+    38 │   │   request.headers[key] = value                                             
+  ❱ 39 │   return call_next(request)                                                    
+    40                                                                                  
+    41                                                                                  
+    42 async def async_rest_headers_middleware(                                         
+                                                                                        
+  C:\dev\Teaching-Assistant\venv\Lib\site-packages\qdrant_client\http\api_client.py:15  
+  0 in inner_send                                                                       
+                                                                                        
+    147 │   │                                                                           
+    148 │   │   def new_middleware(request: Request, call_next: Send) -> Response:      
+    149 │   │   │   def inner_send(request: Request) -> Response:                       
+  ❱ 150 │   │   │   │   return current_middleware(request, call_next)                   
+    151 │   │   │                                                                       
+    152 │   │   │   return middleware(request, inner_send)                              
+    153                                                                                 
+                                                                                        
+  C:\dev\Teaching-Assistant\venv\Lib\site-packages\qdrant_client\http\api_client.py:25  
+  3 in __call__                                                                         
+                                                                                        
+    250                                                                                 
+    251 class BaseMiddleware:                                                           
+    252 │   def __call__(self, request: Request, call_next: Send) -> Response:          
+  ❱ 253 │   │   return call_next(request)                                               
+    254                                                                                 
+    255                                                                                 
+    256 @lru_cache(maxsize=None)                                                        
+                                                                                        
+  C:\dev\Teaching-Assistant\venv\Lib\site-packages\qdrant_client\http\api_client.py:13  
+  9 in send_inner                                                                       
+                                                                                        
+    136 │   │   try:                                                                    
+    137 │   │   │   response = self._client.send(request)                               
+    138 │   │   except Exception as e:                                                  
+  ❱ 139 │   │   │   raise ResponseHandlingException(e)                                  
+    140 │   │   return response                                                         
+    141 │                                                                               
+    142 │   def close(self) -> None:                                                    
+────────────────────────────────────────────────────────────────────────────────────────
+ResponseHandlingException: [WinError 10054] An existing connection was forcibly closed 
+by the remote host
+────────────────────────── Traceback (most recent call last) ───────────────────────────
+  C:\dev\Teaching-Assistant\venv\Lib\site-packages\httpx\_transports\default.py:101 in  
+  map_httpcore_exceptions                                                               
+                                                                                        
+     98 │   if len(HTTPCORE_EXC_MAP) == 0:                                              
+     99 │   │   HTTPCORE_EXC_MAP = _load_httpcore_exceptions()                          
+    100 │   try:                                                                        
+  ❱ 101 │   │   yield                                                                   
+    102 │   except Exception as exc:                                                    
+    103 │   │   mapped_exc = None                                                       
+    104                                                                                 
+                                                                                        
+  C:\dev\Teaching-Assistant\venv\Lib\site-packages\httpx\_transports\default.py:250 in  
+  handle_request                                                                        
+                                                                                        
+    247 │   │   │   extensions=request.extensions,                                      
+    248 │   │   )                                                                       
+    249 │   │   with map_httpcore_exceptions():                                         
+  ❱ 250 │   │   │   resp = self._pool.handle_request(req)                               
+    251 │   │                                                                           
+    252 │   │   assert isinstance(resp.stream, typing.Iterable)                         
+    253                                                                                 
+                                                                                        
+  C:\dev\Teaching-Assistant\venv\Lib\site-packages\httpcore\_sync\connection_pool.py:2  
+  56 in handle_request                                                                  
+                                                                                        
+    253 │   │   │   │   closing = self._assign_requests_to_connections()                
+    254 │   │   │                                                                       
+    255 │   │   │   self._close_connections(closing)                                    
+  ❱ 256 │   │   │   raise exc from None                                                 
+    257 │   │                                                                           
+    258 │   │   # Return the response. Note that in this case we still have to manage   
+    259 │   │   # the point at which the response is closed.                            
+                                                                                        
+  C:\dev\Teaching-Assistant\venv\Lib\site-packages\httpcore\_sync\connection_pool.py:2  
+  36 in handle_request                                                                  
+                                                                                        
+    233 │   │   │   │                                                                   
+    234 │   │   │   │   try:                                                            
+    235 │   │   │   │   │   # Send the request on the assigned connection.              
+  ❱ 236 │   │   │   │   │   response = connection.handle_request(                       
+    237 │   │   │   │   │   │   pool_request.request                                    
+    238 │   │   │   │   │   )                                                           
+    239 │   │   │   │   except ConnectionNotAvailable:                                  
+                                                                                        
+  C:\dev\Teaching-Assistant\venv\Lib\site-packages\httpcore\_sync\connection.py:101 in  
+  handle_request                                                                        
+                                                                                        
+     98 │   │   │   │   │   │   )                                                       
+     99 │   │   except BaseException as exc:                                            
+    100 │   │   │   self._connect_failed = True                                         
+  ❱ 101 │   │   │   raise exc                                                           
+    102 │   │                                                                           
+    103 │   │   return self._connection.handle_request(request)                         
+    104                                                                                 
+                                                                                        
+  C:\dev\Teaching-Assistant\venv\Lib\site-packages\httpcore\_sync\connection.py:78 in   
+  handle_request                                                                        
+                                                                                        
+     75 │   │   try:                                                                    
+     76 │   │   │   with self._request_lock:                                            
+     77 │   │   │   │   if self._connection is None:                                    
+  ❱  78 │   │   │   │   │   stream = self._connect(request)                             
+     79 │   │   │   │   │                                                               
+     80 │   │   │   │   │   ssl_object = stream.get_extra_info("ssl_object")            
+     81 │   │   │   │   │   http2_negotiated = (                                        
+                                                                                        
+  C:\dev\Teaching-Assistant\venv\Lib\site-packages\httpcore\_sync\connection.py:156 in  
+  _connect                                                                              
+                                                                                        
+    153 │   │   │   │   │   │   "timeout": timeout,                                     
+    154 │   │   │   │   │   }                                                           
+    155 │   │   │   │   │   with Trace("start_tls", logger, request, kwargs) as trace:  
+  ❱ 156 │   │   │   │   │   │   stream = stream.start_tls(**kwargs)                     
+    157 │   │   │   │   │   │   trace.return_value = stream                             
+    158 │   │   │   │   return stream                                                   
+    159 │   │   │   except (ConnectError, ConnectTimeout):                              
+                                                                                        
+  C:\dev\Teaching-Assistant\venv\Lib\site-packages\httpcore\_backends\sync.py:154 in    
+  start_tls                                                                             
+                                                                                        
+    151 │   │   │   socket.timeout: ConnectTimeout,                                     
+    152 │   │   │   OSError: ConnectError,                                              
+    153 │   │   }                                                                       
+  ❱ 154 │   │   with map_exceptions(exc_map):                                           
+    155 │   │   │   try:                                                                
+    156 │   │   │   │   if isinstance(self._sock, ssl.SSLSocket):  # pragma: no cover   
+    157 │   │   │   │   │   # If the underlying socket has already been upgraded        
+                                                                                        
+  C:\Users\91857\AppData\Local\Programs\Python\Python311\Lib\contextlib.py:158 in       
+  __exit__                                                                              
+                                                                                        
+    155 │   │   │   │   # tell if we get the same exception back                        
+    156 │   │   │   │   value = typ()                                                   
+    157 │   │   │   try:                                                                
+  ❱ 158 │   │   │   │   self.gen.throw(typ, value, traceback)                           
+    159 │   │   │   except StopIteration as exc:                                        
+    160 │   │   │   │   # Suppress StopIteration *unless* it's the same exception that  
+    161 │   │   │   │   # was passed to throw().  This prevents a StopIteration         
+                                                                                        
+  C:\dev\Teaching-Assistant\venv\Lib\site-packages\httpcore\_exceptions.py:14 in        
+  map_exceptions                                                                        
+                                                                                        
+    11 │   except Exception as exc:  # noqa: PIE786                                     
+    12 │   │   for from_exc, to_exc in map.items():                                     
+    13 │   │   │   if isinstance(exc, from_exc):                                        
+  ❱ 14 │   │   │   │   raise to_exc(exc) from exc                                       
+    15 │   │   raise  # pragma: nocover                                                 
+    16                                                                                  
+    17                                                                                  
+────────────────────────────────────────────────────────────────────────────────────────
+ConnectError: [WinError 10054] An existing connection was forcibly closed by the remote 
+host
+
+The above exception was the direct cause of the following exception:
+
+────────────────────────── Traceback (most recent call last) ───────────────────────────
+  C:\dev\Teaching-Assistant\venv\Lib\site-packages\qdrant_client\http\api_client.py:13  
+  7 in send_inner                                                                       
+                                                                                        
+    134 │                                                                               
+    135 │   def send_inner(self, request: Request) -> Response:                         
+    136 │   │   try:                                                                    
+  ❱ 137 │   │   │   response = self._client.send(request)                               
+    138 │   │   except Exception as e:                                                  
+    139 │   │   │   raise ResponseHandlingException(e)                                  
+    140 │   │   return response                                                         
+                                                                                        
+  C:\dev\Teaching-Assistant\venv\Lib\site-packages\httpx\_client.py:914 in send         
+                                                                                        
+     911 │   │                                                                          
+     912 │   │   auth = self._build_request_auth(request, auth)                         
+     913 │   │                                                                          
+  ❱  914 │   │   response = self._send_handling_auth(                                   
+     915 │   │   │   request,                                                           
+     916 │   │   │   auth=auth,                                                         
+     917 │   │   │   follow_redirects=follow_redirects,                                 
+                                                                                        
+  C:\dev\Teaching-Assistant\venv\Lib\site-packages\httpx\_client.py:942 in              
+  _send_handling_auth                                                                   
+                                                                                        
+     939 │   │   │   request = next(auth_flow)                                          
+     940 │   │   │                                                                      
+     941 │   │   │   while True:                                                        
+  ❱  942 │   │   │   │   response = self._send_handling_redirects(                      
+     943 │   │   │   │   │   request,                                                   
+     944 │   │   │   │   │   follow_redirects=follow_redirects,                         
+     945 │   │   │   │   │   history=history,                                           
+                                                                                        
+  C:\dev\Teaching-Assistant\venv\Lib\site-packages\httpx\_client.py:979 in              
+  _send_handling_redirects                                                              
+                                                                                        
+     976 │   │   │   for hook in self._event_hooks["request"]:                          
+     977 │   │   │   │   hook(request)                                                  
+     978 │   │   │                                                                      
+  ❱  979 │   │   │   response = self._send_single_request(request)                      
+     980 │   │   │   try:                                                               
+     981 │   │   │   │   for hook in self._event_hooks["response"]:                     
+     982 │   │   │   │   │   hook(response)                                             
+                                                                                        
+  C:\dev\Teaching-Assistant\venv\Lib\site-packages\httpx\_client.py:1014 in             
+  _send_single_request                                                                  
+                                                                                        
+    1011 │   │   │   )                                                                  
+    1012 │   │                                                                          
+    1013 │   │   with request_context(request=request):                                 
+  ❱ 1014 │   │   │   response = transport.handle_request(request)                       
+    1015 │   │                                                                          
+    1016 │   │   assert isinstance(response.stream, SyncByteStream)                     
+    1017                                                                                
+                                                                                        
+  C:\dev\Teaching-Assistant\venv\Lib\site-packages\httpx\_transports\default.py:249 in  
+  handle_request                                                                        
+                                                                                        
+    246 │   │   │   content=request.stream,                                             
+    247 │   │   │   extensions=request.extensions,                                      
+    248 │   │   )                                                                       
+  ❱ 249 │   │   with map_httpcore_exceptions():                                         
+    250 │   │   │   resp = self._pool.handle_request(req)                               
+    251 │   │                                                                           
+    252 │   │   assert isinstance(resp.stream, typing.Iterable)                         
+                                                                                        
+  C:\Users\91857\AppData\Local\Programs\Python\Python311\Lib\contextlib.py:158 in       
+  __exit__                                                                              
+                                                                                        
+    155 │   │   │   │   # tell if we get the same exception back                        
+    156 │   │   │   │   value = typ()                                                   
+    157 │   │   │   try:                                                                
+  ❱ 158 │   │   │   │   self.gen.throw(typ, value, traceback)                           
+    159 │   │   │   except StopIteration as exc:                                        
+    160 │   │   │   │   # Suppress StopIteration *unless* it's the same exception that  
+    161 │   │   │   │   # was passed to throw().  This prevents a StopIteration         
+                                                                                        
+  C:\dev\Teaching-Assistant\venv\Lib\site-packages\httpx\_transports\default.py:118 in  
+  map_httpcore_exceptions                                                               
+                                                                                        
+    115 │   │   │   raise                                                               
+    116 │   │                                                                           
+    117 │   │   message = str(exc)                                                      
+  ❱ 118 │   │   raise mapped_exc(message) from exc                                      
+    119                                                                                 
+    120                                                                                 
+    121 class ResponseStream(SyncByteStream):                                           
+────────────────────────────────────────────────────────────────────────────────────────
+ConnectError: [WinError 10054] An existing connection was forcibly closed by the remote
+host

@@ -2,7 +2,7 @@
 
 A RAG-powered teaching assistant built on [*Dive into Deep Learning*](https://d2l.ai) (d2l.ai). Instead of a plain "chat with PDF" chatbot, it has **5 distinct teaching modes** — each with its own prompt, output schema, and UI — and one of them (Socratic tutoring) runs as a **LangGraph state machine** rather than a single prompt call.
 
-**[🚀 Live Demo →](https://your-app.streamlit.app)**
+**[🚀 Live Demo →](https://ai-teaching-assistant-san.streamlit.app/)**
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue)
 ![LangChain](https://img.shields.io/badge/LangChain-0.2+-1C3C3C)

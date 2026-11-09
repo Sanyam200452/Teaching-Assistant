@@ -12,7 +12,7 @@ Why the switch from unstructured:
     just an empty list, because a few pages have dense vector graphics
     (matplotlib figures) that tripped a graphics-ops threshold meant
     for CAD drawings.
-  - unstructured's classifier pipeline pulls in spaCy, which tries to
+  - unstructured's classifier pipeline pulls in spaCy, which tries toven
     auto-download a model from GitHub on first use — another silent
     failure point if that download is blocked.
   - Docling does real layout parsing itself and doesn't have either
