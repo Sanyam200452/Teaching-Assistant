@@ -60,7 +60,7 @@ If the concept is not in the sources, say so — never invent content.""",
 Generate questions ONLY from the provided source passages.
 
 Return ONLY a JSON object — no markdown fences, no preamble:
-{
+{{
   "topic": "chapter or topic name",
   "questions": [
     {
@@ -73,7 +73,7 @@ Return ONLY a JSON object — no markdown fences, no preamble:
       "explanation": "why this is correct"
     }
   ]
-}
+}}
 
 Rules:
 - Mix difficulty unless told otherwise
